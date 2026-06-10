@@ -844,12 +844,27 @@
     </div>
 
     <div class="location-tabs" id="maintenanceTabs">
-      <div class="loc-tab active" data-panel="mr-nbaltimore">North Baltimore</div>
+      <div class="loc-tab active" data-panel="mr-overall">Overall</div>
+      <div class="loc-tab" data-panel="mr-nbaltimore">North Baltimore</div>
       <div class="loc-tab" data-panel="mr-tama">Tama</div>
     </div>
 
+    <!-- Overall (Combined) -->
+    <div class="loc-panel active" id="mr-overall">
+      <div id="mr-overall-insights"></div>
+      <div class="platform-grid" id="mr-overall-cards"></div>
+      <div class="mom-section">
+        <div class="mom-header"><h3>&#128200; Month-over-Month Comparison — North Baltimore</h3></div>
+        <div class="mom-body"><div class="mom-table-wrap"><table class="mom-table" id="table-mr-overall-nb"></table></div></div>
+      </div>
+      <div class="mom-section">
+        <div class="mom-header"><h3>&#128200; Month-over-Month Comparison — Tama (Maintenance)</h3></div>
+        <div class="mom-body"><div class="mom-table-wrap"><table class="mom-table" id="table-mr-overall-tama"></table></div></div>
+      </div>
+    </div>
+
     <!-- North Baltimore -->
-    <div class="loc-panel active" id="mr-nbaltimore">
+    <div class="loc-panel" id="mr-nbaltimore">
       <div id="mr-nb-insights"></div>
       <div class="platform-grid" id="mr-nb-cards"></div>
       <div class="chart-card">
@@ -1072,6 +1087,11 @@ const DATA = {
           videoCompletions: 14994,
           vtr:              63.29,
         },
+        googleSearch: {
+          impressions:       1,
+          clicks:            0,
+          ctr:            0.00,
+        },
       },
       'Tama': {
         facebook: {
@@ -1093,6 +1113,11 @@ const DATA = {
           ctr:               0.04,
           videoCompletions: 15243,
           vtr:              66.17,
+        },
+        googleSearch: {
+          impressions:       2,
+          clicks:            1,
+          ctr:           50.00,
         },
       },
     },
@@ -1122,11 +1147,13 @@ const DATA = {
           'Facebook had a <strong>2.67% CTR</strong> — well above the <span class="hi-good">0.78% industry benchmark</span>. <strong>2,897 link clicks</strong> to the landing page were recorded in May.',
           'Geofence/Remarketing Display served over <strong>71K impressions</strong> and drove <strong>181 clicks</strong>. CTR of <span class="hi-good">0.25%</span> is above the 0.10–0.15% industry average.',
           'Online Video captured over <strong>14K completed views</strong> with a VTR of <span class="hi-good">63.29%</span> — well above the 30% benchmark.',
+          'Google Search recorded <strong>1 impression</strong> and <strong>0 clicks</strong> in May. <span class="hi-warn">Note: pixel tracking is not available for this campaign.</span>',
         ],
         'Tama': [
           'Facebook had a <strong>2.89% CTR</strong> — well above the <span class="hi-good">0.78% industry benchmark</span>. <strong>3,088 link clicks</strong> to the landing page were recorded in May.',
           'Geofence/Remarketing Display served over <strong>68K impressions</strong> and drove <strong>202 clicks</strong>. CTR of <span class="hi-good">0.30%</span> is above the 0.10–0.15% industry average.',
           'Online Video captured over <strong>15K completed views</strong> with a VTR of <span class="hi-good">66.17%</span> — well above the 30% benchmark.',
+          'Google Search recorded <strong>2 impressions</strong> and <strong>1 click</strong> in May. <span class="hi-warn">Note: pixel tracking is not available for this campaign.</span>',
         ],
       },
     },
@@ -2226,9 +2253,172 @@ function renderGeneral(md, prev) {
 }
 
 // ── MAINTENANCE ──
+function combineMaintData(nb, tama) {
+  if (!nb && !tama) return null;
+  const safe = (a, b) => (a || 0) + (b || 0);
+  const result = {};
+
+  if (nb?.facebook || tama?.facebook) {
+    const nf = nb?.facebook || {}, tf = tama?.facebook || {};
+    const totalImpr = safe(nf.impressions, tf.impressions);
+    const totalAllClicks = safe(nf.allClicks, tf.allClicks);
+    result.facebook = {
+      impressions:  totalImpr,
+      allClicks:    totalAllClicks,
+      ctr:          totalImpr ? +(totalAllClicks / totalImpr * 100).toFixed(2) : 0,
+      linkClicksLP: safe(nf.linkClicksLP, tf.linkClicksLP),
+      engagements:  safe(nf.engagements, tf.engagements),
+      cpc:          (nf.cpc && tf.cpc) ? +((nf.cpc + tf.cpc) / 2).toFixed(2) : (nf.cpc || tf.cpc || 0),
+      _ctrNB:   nf.ctr,
+      _ctrTama: tf.ctr,
+    };
+  }
+
+  if (nb?.geofence || tama?.geofence) {
+    const ng = nb?.geofence || {}, tg = tama?.geofence || {};
+    const totalImpr = safe(ng.impressions, tg.impressions);
+    const totalClicks = safe(ng.clicks, tg.clicks);
+    result.geofence = {
+      impressions: totalImpr,
+      clicks:      totalClicks,
+      ctr:         totalImpr ? +(totalClicks / totalImpr * 100).toFixed(2) : 0,
+    };
+  }
+
+  if (nb?.onlineVideo || tama?.onlineVideo) {
+    const nv = nb?.onlineVideo || {}, tv = tama?.onlineVideo || {};
+    const totalImpr = safe(nv.impressions, tv.impressions);
+    const totalComp = safe(nv.videoCompletions, tv.videoCompletions);
+    const totalClicks = safe(nv.clicks, tv.clicks);
+    result.onlineVideo = {
+      impressions:      totalImpr,
+      videoCompletions: totalComp,
+      clicks:           totalClicks,
+      ctr:              totalImpr ? +(totalClicks / totalImpr * 100).toFixed(2) : 0,
+      vtr:              totalImpr ? +(totalComp / totalImpr * 100).toFixed(2) : 0,
+    };
+  }
+
+  if (nb?.googleSearch || tama?.googleSearch) {
+    const ns = nb?.googleSearch || {}, ts = tama?.googleSearch || {};
+    const totalImpr = safe(ns.impressions, ts.impressions);
+    const totalClicks = safe(ns.clicks, ts.clicks);
+    result.googleSearch = {
+      impressions: totalImpr,
+      clicks:      totalClicks,
+      ctr:         totalImpr ? +(totalClicks / totalImpr * 100).toFixed(2) : 0,
+    };
+  }
+
+  return result;
+}
+
+function buildOverallMaintenanceInsights(md) {
+  const nb = md.maintenance?.['North Baltimore'];
+  const tm = md.maintenance?.['Tama'];
+  if (!nb && !tm) return '';
+
+  const bullets = [];
+
+  // Facebook
+  if (nb?.facebook || tm?.facebook) {
+    const nf = nb?.facebook || {}, tf = tm?.facebook || {};
+    const totalLinks = (nf.linkClicksLP || 0) + (tf.linkClicksLP || 0);
+    const nbCtr = nf.ctr, tamaCtr = tf.ctr;
+    const ctrRange = (nbCtr && tamaCtr)
+      ? `${Math.min(nbCtr, tamaCtr).toFixed(2)}–${Math.max(nbCtr, tamaCtr).toFixed(2)}%`
+      : (nbCtr || tamaCtr ? `${(nbCtr || tamaCtr).toFixed(2)}%` : null);
+    if (totalLinks && ctrRange) {
+      bullets.push(`Facebook drove a combined <strong>${fmt(totalLinks)} link clicks</strong> to the landing page. CTR ranged <span class="hi-good">${ctrRange}</span> across locations — both above the 0.78% industry benchmark.`);
+    }
+  }
+
+  // Geofence
+  if (nb?.geofence || tm?.geofence) {
+    const ng = nb?.geofence || {}, tg = tm?.geofence || {};
+    const totalImpr = (ng.impressions || 0) + (tg.impressions || 0);
+    const totalClicks = (ng.clicks || 0) + (tg.clicks || 0);
+    const avgCtr = totalImpr ? (totalClicks / totalImpr * 100).toFixed(2) : null;
+    if (totalImpr) {
+      bullets.push(`Geofence/Remarketing Display delivered a combined <strong>${fmt(totalImpr)} impressions</strong> and <strong>${fmt(totalClicks)} clicks</strong>. Combined CTR of <span class="hi-good">${avgCtr}%</span> is above the 0.10–0.15% industry average.`);
+    }
+  }
+
+  // Online Video
+  if (nb?.onlineVideo || tm?.onlineVideo) {
+    const nv = nb?.onlineVideo || {}, tv = tm?.onlineVideo || {};
+    const totalComp = (nv.videoCompletions || 0) + (tv.videoCompletions || 0);
+    const totalImpr = (nv.impressions || 0) + (tv.impressions || 0);
+    const combinedVtr = totalImpr ? (totalComp / totalImpr * 100).toFixed(2) : null;
+    if (totalComp) {
+      bullets.push(`Online Video captured a combined <strong>${fmt(totalComp)} completed views</strong> across both locations. Combined VTR of <span class="hi-good">${combinedVtr}%</span> — well above the 30% benchmark.`);
+    }
+  }
+
+  // Google Search / PPC
+  if (nb?.googleSearch || tm?.googleSearch) {
+    const ns = nb?.googleSearch || {}, ts = tm?.googleSearch || {};
+    const totalClicks = (ns.clicks || 0) + (ts.clicks || 0);
+    const totalImpr = (ns.impressions || 0) + (ts.impressions || 0);
+    const avgCtr = totalImpr ? (totalClicks / totalImpr * 100).toFixed(2) : null;
+    if (totalClicks) {
+      bullets.push(`Google PPC drove a combined <strong>${fmt(totalClicks)} clicks</strong> across both locations. Combined CTR of <span class="hi-good">${avgCtr}%</span> — exceeding the 2.42% industry benchmark. <span class="hi-warn">Note: pixel tracking is not available for these campaigns.</span>`);
+    }
+  }
+
+  return buildInsightsCard(bullets);
+}
+
 function renderMaintenance(md, prev) {
   const maint  = md.maintenance;
   const pmaint = prev?.maintenance;
+
+  // ── Overall (Combined) ──
+  const ovNb   = maint?.['North Baltimore'];
+  const ovTama = maint?.['Tama'];
+  const povNb   = pmaint?.['North Baltimore'];
+  const povTama = pmaint?.['Tama'];
+  document.getElementById('mr-overall-insights').innerHTML = buildOverallMaintenanceInsights(md);
+  const combined  = combineMaintData(ovNb, ovTama);
+  const pcombined = combineMaintData(povNb, povTama);
+  let overallCards = '';
+  if (combined?.facebook)    overallCards += buildFacebookCard(combined.facebook, pcombined);
+  if (combined?.geofence)    overallCards += buildGeofenceCard(combined.geofence, pcombined);
+  if (combined?.onlineVideo) overallCards += buildVideoCard(combined.onlineVideo, pcombined);
+  if (combined?.googleSearch) overallCards += buildPPCCard(combined.googleSearch, pcombined?.googleSearch ? {ppc: pcombined.googleSearch} : null, 'Google Search', false);
+  document.getElementById('mr-overall-cards').innerHTML = overallCards;
+
+  const ovNbTable = document.getElementById('table-mr-overall-nb');
+  if (ovNbTable && ovNb) buildMomTable(ovNbTable, [
+    { header: true, label: 'Facebook' },
+    { label: 'Impressions',  higher: true,  values: MONTHS.map(m => { const v = DATA[m]?.maintenance?.['North Baltimore']?.facebook?.impressions; return v != null ? {raw:v, display:fmt(v)} : null; }) },
+    { label: 'CTR',          higher: true,  values: MONTHS.map(m => { const v = DATA[m]?.maintenance?.['North Baltimore']?.facebook?.ctr;         return v != null ? {raw:v, display:fmtPct(v)} : null; }) },
+    { label: 'Link Clicks',  higher: true,  values: MONTHS.map(m => { const v = DATA[m]?.maintenance?.['North Baltimore']?.facebook?.linkClicksLP; return v != null ? {raw:v, display:fmt(v)} : null; }) },
+    { label: 'CPC',          higher: false, values: MONTHS.map(m => { const v = DATA[m]?.maintenance?.['North Baltimore']?.facebook?.cpc;         return v != null ? {raw:v, display:fmtUsd(v)} : null; }) },
+    { header: true, label: 'Geofence / Remarketing' },
+    { label: 'Impressions',  higher: true,  values: MONTHS.map(m => { const v = DATA[m]?.maintenance?.['North Baltimore']?.geofence?.impressions; return v != null ? {raw:v, display:fmt(v)} : null; }) },
+    { label: 'CTR',          higher: true,  values: MONTHS.map(m => { const v = DATA[m]?.maintenance?.['North Baltimore']?.geofence?.ctr;         return v != null ? {raw:v, display:fmtPct(v)} : null; }) },
+    { header: true, label: 'Online Video' },
+    { label: 'VTR',          higher: true,  values: MONTHS.map(m => { const v = DATA[m]?.maintenance?.['North Baltimore']?.onlineVideo?.vtr;      return v != null ? {raw:v, display:fmtPct(v)} : null; }) },
+    { header: true, label: 'Google Search' },
+    { label: 'CTR',          higher: true,  values: MONTHS.map(m => { const v = DATA[m]?.maintenance?.['North Baltimore']?.googleSearch?.ctr;     return v != null ? {raw:v, display:fmtPct(v)} : null; }) },
+  ]);
+
+  const ovTamaTable = document.getElementById('table-mr-overall-tama');
+  if (ovTamaTable && ovTama) buildMomTable(ovTamaTable, [
+    { header: true, label: 'Facebook' },
+    { label: 'Impressions',  higher: true,  values: MONTHS.map(m => { const v = DATA[m]?.maintenance?.['Tama']?.facebook?.impressions; return v != null ? {raw:v, display:fmt(v)} : null; }) },
+    { label: 'CTR',          higher: true,  values: MONTHS.map(m => { const v = DATA[m]?.maintenance?.['Tama']?.facebook?.ctr;         return v != null ? {raw:v, display:fmtPct(v)} : null; }) },
+    { label: 'Link Clicks',  higher: true,  values: MONTHS.map(m => { const v = DATA[m]?.maintenance?.['Tama']?.facebook?.linkClicksLP; return v != null ? {raw:v, display:fmt(v)} : null; }) },
+    { label: 'CPC',          higher: false, values: MONTHS.map(m => { const v = DATA[m]?.maintenance?.['Tama']?.facebook?.cpc;         return v != null ? {raw:v, display:fmtUsd(v)} : null; }) },
+    { header: true, label: 'Geofence / Remarketing' },
+    { label: 'Impressions',  higher: true,  values: MONTHS.map(m => { const v = DATA[m]?.maintenance?.['Tama']?.geofence?.impressions; return v != null ? {raw:v, display:fmt(v)} : null; }) },
+    { label: 'CTR',          higher: true,  values: MONTHS.map(m => { const v = DATA[m]?.maintenance?.['Tama']?.geofence?.ctr;         return v != null ? {raw:v, display:fmtPct(v)} : null; }) },
+    { header: true, label: 'Online Video' },
+    { label: 'VTR',          higher: true,  values: MONTHS.map(m => { const v = DATA[m]?.maintenance?.['Tama']?.onlineVideo?.vtr;      return v != null ? {raw:v, display:fmtPct(v)} : null; }) },
+    { header: true, label: 'Google Search' },
+    { label: 'CTR',          higher: true,  values: MONTHS.map(m => { const v = DATA[m]?.maintenance?.['Tama']?.googleSearch?.ctr;     return v != null ? {raw:v, display:fmtPct(v)} : null; }) },
+  ]);
 
   // ── North Baltimore ──
   const nb  = maint?.['North Baltimore'];
